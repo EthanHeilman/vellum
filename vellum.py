@@ -1,4 +1,5 @@
 import sys, binascii, os,struct
+from Crypto import Random
 
 SIZE_INC = 64
 IV_SIZE = 256
@@ -145,12 +146,13 @@ def MDS(x):
 
 
 def MCHardening(x):
-	for i in xrange(IV_SIZE/8):
-		acc = i&0xFF
-		for j in xrange(len(x)/(IV_SIZE/8) - IV_SIZE):
-			acc ^= x[j*IV_SIZE] & x[(j+1)*IV_SIZE]
-		x[-i] ^= acc
-
+    assert(type(x) is bytearray)
+    input_len = len(x) - (IV_SIZE/8)
+    for i in xrange(input_len):
+        w1 = x[i]>>4
+        w2 = x[i]&0x0F
+        iv_byte = input_len + i % (IV_SIZE/8)
+        x[iv_byte] ^= (sbox4[w1]<<4) + sbox4[w2]
 
 def run(msg):
 	assert(type(msg) is bytearray)
@@ -221,6 +223,15 @@ def unittests():
 	"0000ee00000007000000ee0000000f00")
 
 	assert(shifted == expected)
+
+	rndfile = Random.new()
+	x = bytearray(rndfile.read(576))
+	# Test MC Hardening w/S-box
+	xstr = binascii.hexlify(x)
+	print "Ouput before MC:\n", xstr[-64:]
+	MCHardening(x)
+	xstr = binascii.hexlify(x)
+	print "After MC:\n", xstr[-64:]
 
 def test_vectors():
 	print "Testing..."
